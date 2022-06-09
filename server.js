@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const colors = require("colors");
 
+// Database
 require("./config/db");
 
 const app = express();

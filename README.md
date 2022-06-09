@@ -1,1 +1,1 @@
-# my-cocial-network-api
+# my-social-network-api

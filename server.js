@@ -1,14 +1,23 @@
 require("dotenv").config({ path: "./config/.env" });
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const colors = require("colors");
+const { checkUser, requireAuth } = require("./middleware/auth.middleware");
 
 // Database
 require("./config/db");
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors());
+
+// Middleware
+app.get("*", checkUser);
+app.get("/jwtid", requireAuth, (req, res) => {
+  res.status(200).send(res.locals.user._id);
+});
 
 // Import Routes
 const userRoutes = require("./routes/user.routes");

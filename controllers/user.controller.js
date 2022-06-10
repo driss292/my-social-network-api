@@ -27,11 +27,19 @@ module.exports.updateUser = async (req, res) => {
   }
 
   try {
-    const updatedBio = await UserModel.findOneAndUpdate(
-      req.params.id,
-      req.body
+    await UserModel.findOneAndUpdate(
+      { _id: req.params.id },
+      {
+        $set: {
+          bio: req.body.bio,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+      (err, docs) => {
+        if (!err) return res.send(docs);
+        if (err) return res.status(500).send({ message: err });
+      }
     );
-    res.send({ message: "bio has been updated", result: updatedBio });
   } catch (err) {
     return res.status(500).json({ message: err });
   }
@@ -67,7 +75,7 @@ module.exports.follow = async (req, res) => {
     await UserModel.findByIdAndUpdate(
       req.params.id,
       {
-        $push: { following: req.body.idToFollow },
+        $addToSet: { following: req.body.idToFollow },
       },
       { new: true, upsert: true },
       (err, docs) => {
@@ -89,7 +97,7 @@ module.exports.follow = async (req, res) => {
     await UserModel.findByIdAndUpdate(
       req.body.idToFollow,
       {
-        $push: { followers: req.params.id },
+        $addToSet: { followers: req.params.id },
       },
       { new: true, upsert: true },
       (err, docs) => {

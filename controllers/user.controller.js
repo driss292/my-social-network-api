@@ -1,17 +1,18 @@
 const UserModel = require("../models/user.model");
 const ObjectID = require("mongoose").Types.ObjectId;
 
+// GET all users
 module.exports.getAllUsers = async (req, res) => {
   const users = await UserModel.find().select("-password");
   res.status(200).json(users);
 };
 
+// GET user
 module.exports.userInfo = (req, res) => {
   //   console.log(req.params);
   if (!ObjectID.isValid(req.params.id)) {
     return res.status(400).send(`ID unknown : ${req.params.id}`);
   }
-
   UserModel.findById(req.params.id, (err, docs) => {
     if (!err) {
       res.send(docs);
@@ -21,6 +22,7 @@ module.exports.userInfo = (req, res) => {
   }).select("-password");
 };
 
+// UPDATE user
 module.exports.updateUser = async (req, res) => {
   if (!ObjectID.isValid(req.params.id)) {
     return res.status(400).send(`ID unknown : ${req.params.id}`);
@@ -45,6 +47,7 @@ module.exports.updateUser = async (req, res) => {
   }
 };
 
+// DELETE user
 module.exports.deleteUser = async (req, res) => {
   if (!ObjectID.isValid(req.params.id)) {
     return res.status(400).send(`ID unknown : ${req.params.id}`);
@@ -58,6 +61,7 @@ module.exports.deleteUser = async (req, res) => {
   }
 };
 
+// FOLLOW user
 module.exports.follow = async (req, res) => {
   if (
     !ObjectID.isValid(req.params.id) ||
@@ -68,10 +72,6 @@ module.exports.follow = async (req, res) => {
 
   try {
     // Add to the follower list
-    // const updatedFollower = await UserModel.findByIdAndUpdate(req.params.id);
-    // updatedFollower.following = req.body.idToFollow;
-    // res.send({ message: "follower has been updated", result: updatedFollower });
-    /////////
     await UserModel.findByIdAndUpdate(
       req.params.id,
       {
@@ -85,15 +85,6 @@ module.exports.follow = async (req, res) => {
     );
 
     // Add to following list
-    // const updatedFollowing = await UserModel.findByIdAndUpdate(
-    //   req.body.idToFollow
-    // );
-    // updatedFollowing.followers = req.params.id;
-    // res.send({
-    //   message: "following has been updated",
-    //   result: updatedFollowing,
-    // });
-    ///////////////
     await UserModel.findByIdAndUpdate(
       req.body.idToFollow,
       {
@@ -110,13 +101,42 @@ module.exports.follow = async (req, res) => {
   }
 };
 
-// module.exports.unfollow = async (req, res) => {
-//   if (!ObjectID.isValid(req.params.id)) {
-//     return res.status(400).send(`ID unknown : ${req.params.id}`);
-//   }
+// UNFOLLOW user
+module.exports.unfollow = async (req, res) => {
+  if (
+    !ObjectID.isValid(req.params.id) ||
+    !ObjectID.isValid(req.body.idToUnfollow)
+  ) {
+    return res.status(400).send(`ID unknown : ${req.params.id}`);
+  }
 
-//   try {
-//   } catch (err) {
-//     return res.status(500).json({ message: err });
-//   }
-// };
+  try {
+    // Remove from the follower list
+    await UserModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $pull: { following: req.body.idToUnfollow },
+      },
+      { new: true, upsert: true },
+      (err, docs) => {
+        if (!err) res.status(201).json(docs);
+        else return res.status(400).json(err);
+      }
+    );
+
+    // Remove from following list
+    await UserModel.findByIdAndUpdate(
+      req.body.idToUnfollow,
+      {
+        $pull: { followers: req.params.id },
+      },
+      { new: true, upsert: true },
+      (err, docs) => {
+        // if (!err) res.status(201).json(docs);
+        if (err) return res.status(400).json(err);
+      }
+    );
+  } catch (err) {
+    return res.status(500).json({ message: err });
+  }
+};

@@ -7,8 +7,8 @@ const userSchema = new mongoose.Schema(
     pseudo: {
       type: String,
       required: true,
-      minlength: 3,
-      maxlength: 55,
+      min: 3,
+      max: 55,
       unique: true,
       trim: true,
     },
@@ -24,9 +24,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       max: 1024,
-      minlength: 6,
+      min: 6,
     },
-    profilPicture: {
+    profilePicture: {
       type: String,
       default: "./uploads/profil/random-user.png",
     },
@@ -46,6 +46,18 @@ const userSchema = new mongoose.Schema(
     },
     likes: {
       type: [String],
+    },
+    city: {
+      type: String,
+      max: 50,
+    },
+    from: {
+      type: String,
+      max: 50,
+    },
+    relationship: {
+      type: Number,
+      enum: [1, 2, 3],
     },
   },
   {

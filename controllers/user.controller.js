@@ -1,5 +1,5 @@
 const UserModel = require("../models/user.model");
-const ObjectID = require("mongoose").Types.ObjectId;
+const bcrypt = require("bcrypt");
 
 // GET all users
 module.exports.getAllUsers = async (req, res) => {
@@ -8,53 +8,45 @@ module.exports.getAllUsers = async (req, res) => {
 };
 
 // GET user
-module.exports.userInfo = (req, res) => {
-  if (!ObjectID.isValid(req.params.id)) {
-    return res.status(400).send(`ID unknown : ${req.params.id}`);
+module.exports.userInfo = async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.params.id);
+    const { password, updatedAt, ...other } = user._doc;
+    res.status(200).json(other);
+  } catch (error) {
+    res.status(500).json(error);
   }
-  UserModel.findById(req.params.id, (err, docs) => {
-    if (!err) {
-      res.send(docs);
-    } else {
-      console.log(`ID unknown : ${req.params.id}`);
-    }
-  }).select("-password");
 };
 
 // UPDATE user
 module.exports.updateUser = async (req, res) => {
-  if (!ObjectID.isValid(req.params.id)) {
-    return res.status(400).send(`ID unknown : ${req.params.id}`);
-  }
-
-  try {
-    await UserModel.findOneAndUpdate(
-      { _id: req.params.id },
-      {
-        $set: {
-          bio: req.body.bio,
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
-      (err, docs) => {
-        if (!err) return res.send(docs);
-        if (err) return res.status(500).send({ message: err });
+  if (req.body.id === req.params.id) {
+    if (req.body.password) {
+      try {
+        const salt = await bcrypt.genSalt();
+        req.body.password = await bcrypt.hash(req.body.password, salt);
+      } catch (error) {
+        res.status(500).json(error);
       }
-    );
-  } catch (err) {
-    return res.status(500).json({ message: err });
+    }
+    try {
+      await UserModel.findByIdAndUpdate(req.params.id, {
+        $set: req.body,
+      });
+      res.status(200).json("Account has been updated");
+    } catch (err) {
+      return res.status(500).json({ message: err });
+    }
+  } else {
+    res.status(403).json("You can update only your account");
   }
 };
 
 // DELETE user
 module.exports.deleteUser = async (req, res) => {
-  if (!ObjectID.isValid(req.params.id)) {
-    return res.status(400).send(`ID unknown : ${req.params.id}`);
-  }
-
   try {
-    await UserModel.deleteOne({ _id: req.params.id }).exec();
-    res.status(200).json({ message: "Successfully deleted !" });
+    await UserModel.findByIdAndDelete(req.params.id);
+    res.status(200).json("account has been deleted");
   } catch (err) {
     return res.status(500).json({ message: err });
   }
@@ -62,80 +54,42 @@ module.exports.deleteUser = async (req, res) => {
 
 // FOLLOW user
 module.exports.follow = async (req, res) => {
-  if (
-    !ObjectID.isValid(req.params.id) ||
-    !ObjectID.isValid(req.body.idToFollow)
-  ) {
-    return res.status(400).send(`ID unknown : ${req.params.id}`);
-  }
-
-  try {
-    // Add to the follower list
-    await UserModel.findByIdAndUpdate(
-      req.params.id,
-      {
-        $addToSet: { following: req.body.idToFollow },
-      },
-      { new: true, upsert: true },
-      (err, docs) => {
-        if (!err) res.status(201).json(docs);
-        else return res.status(400).json(err);
+  if (req.params.id !== req.body.userId) {
+    try {
+      const user = await UserModel.findById(req.params.id);
+      const currentUser = await UserModel.findById(req.body.userId);
+      if (!user.followers.includes(req.body.userId)) {
+        await user.updateOne({ $push: { followers: req.body.userId } });
+        await currentUser.updateOne({ $push: { following: req.params.id } });
+        res.status(200).json("User has been followed");
+      } else {
+        res.status(403).json("You already follow this user");
       }
-    );
-
-    // Add to following list
-    await UserModel.findByIdAndUpdate(
-      req.body.idToFollow,
-      {
-        $addToSet: { followers: req.params.id },
-      },
-      { new: true, upsert: true },
-      (err, docs) => {
-        // if (!err) res.status(201).json(docs);
-        if (err) return res.status(400).json(err);
-      }
-    );
-  } catch (err) {
-    return res.status(500).json({ message: err });
+    } catch (err) {
+      return res.status(500).json({ message: err });
+    }
+  } else {
+    res.status(403).json("you can't follow yourself");
   }
 };
 
 // UNFOLLOW user
 module.exports.unfollow = async (req, res) => {
-  if (
-    !ObjectID.isValid(req.params.id) ||
-    !ObjectID.isValid(req.body.idToUnfollow)
-  ) {
-    return res.status(400).send(`ID unknown : ${req.params.id}`);
-  }
-
-  try {
-    // Remove from the follower list
-    await UserModel.findByIdAndUpdate(
-      req.params.id,
-      {
-        $pull: { following: req.body.idToUnfollow },
-      },
-      { new: true, upsert: true },
-      (err, docs) => {
-        if (!err) res.status(201).json(docs);
-        else return res.status(400).json(err);
+  if (req.params.id !== req.body.userId) {
+    try {
+      const user = await UserModel.findById(req.params.id);
+      const currentUser = await UserModel.findById(req.body.userId);
+      if (user.followers.includes(req.body.userId)) {
+        await user.updateOne({ $pull: { followers: req.body.userId } });
+        await currentUser.updateOne({ $pull: { following: req.params.id } });
+        res.status(200).json("User has been unfollowed");
+      } else {
+        res.status(403).json("You can unfollow only the users you followed");
       }
-    );
-
-    // Remove from following list
-    await UserModel.findByIdAndUpdate(
-      req.body.idToUnfollow,
-      {
-        $pull: { followers: req.params.id },
-      },
-      { new: true, upsert: true },
-      (err, docs) => {
-        // if (!err) res.status(201).json(docs);
-        if (err) return res.status(400).json(err);
-      }
-    );
-  } catch (err) {
-    return res.status(500).json({ message: err });
+    } catch (err) {
+      return res.status(500).json({ message: err });
+    }
+  } else {
+    res.status(403).json("you can't follow yourself");
   }
 };

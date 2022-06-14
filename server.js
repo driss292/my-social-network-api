@@ -22,6 +22,8 @@ app.get("/jwtid", requireAuth, (req, res) => {
 // Import Routes
 const userRoutes = require("./routes/user.routes");
 app.use("/api/user", userRoutes);
+const postRoutes = require("./routes/post.routes");
+app.use("/api/post", postRoutes);
 
 app.get("/", (req, res) => {
   res.json("Bienvenue sur My-Social-Network-API");

@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const authController = require("../controllers/auth.controller");
 const userController = require("../controllers/user.controller");
+const uploadController = require("../controllers/upload.controller");
 
 // Auth
 router.post("/register", authController.signUp);
@@ -14,5 +15,8 @@ router.put("/:id", userController.updateUser);
 router.delete("/:id", userController.deleteUser);
 router.put("/follow/:id", userController.follow);
 router.put("/unfollow/:id", userController.unfollow);
+
+// Upload
+router.post("/upload", uploadController.uploadProfil);
 
 module.exports = router;
